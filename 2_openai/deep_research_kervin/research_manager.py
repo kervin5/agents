@@ -3,6 +3,7 @@ from search_agent import search_agent
 from planner_agent import planner_agent, WebSearchItem, WebSearchPlan
 from writer_agent import writer_agent, ReportData
 from email_agent import email_agent
+from clarifier_agent import clarifier_agent
 import asyncio
 
 class ResearchManager:
