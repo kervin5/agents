@@ -1,5 +1,6 @@
 import gradio as gr
 from dotenv import load_dotenv
+from autonomous_research_manager import AutonomousResearchManager
 from research_manager import ResearchManager
 from clarifier_agent import clarifier_agent
 from agents import Runner
@@ -21,23 +22,44 @@ async def check_and_clarify(query: str):
     return False, []
 
 
-async def run_research(query: str, clarifications: str = ""):
+async def run_research(query: str, clarifications: str = "", research_approach: str = "autonomous"):
     """Run research with optional clarifications"""
     full_query = query
     if clarifications.strip():
         full_query = f"{query}\n\nAdditional context: {clarifications}"
     
-    async for chunk in ResearchManager().run(full_query):
-        yield chunk
+    # Choose research approach
+    if research_approach == "hardcoded":
+        async for chunk in ResearchManager().run(full_query):
+            yield chunk
+    else:  # autonomous (includes handoff for email)
+        async for chunk in AutonomousResearchManager().run(full_query):
+            yield chunk
 
 
 with gr.Blocks() as ui:
-    gr.Markdown("# Deep Research")
+    gr.Markdown("# Deep Research - Agent Approaches")
+    gr.Markdown("""
+    **Autonomous Agent**: Single agent with tools + handoff for email delivery
+    
+    **Hardcoded Workflow**: Linear step-by-step research process
+    """)
     
     # Main query input
     query_textbox = gr.Textbox(
         label="What topic would you like to research?",
         placeholder="Enter your research question or topic..."
+    )
+    
+    # Research approach selection
+    approach_radio = gr.Radio(
+        choices=[
+            ("Autonomous Agent (tools + handoff)", "autonomous"),
+            ("Hardcoded Workflow (linear)", "hardcoded")
+        ],
+        label="Research Approach",
+        value="autonomous",
+        info="Autonomous uses tools with single handoff for email; Hardcoded uses linear workflow"
     )
     
     # Clarification section (initially hidden)
@@ -69,7 +91,7 @@ with gr.Blocks() as ui:
     # Results
     report = gr.Markdown(label="Report")
     
-    async def handle_run_research(query):
+    async def handle_run_research(query, research_approach):
         """Handle the main research flow with optional clarification"""
         if not query.strip():
             gr.Warning("Please enter a research query first.")
@@ -91,18 +113,18 @@ with gr.Blocks() as ui:
             else:
                 # Run research directly if no clarification needed
                 report_content = ""
-                async for chunk in run_research(query):
+                async for chunk in run_research(query, "", research_approach):
                     report_content = chunk
                 return gr.update(visible=False), "", report_content, gr.update(visible=True)
         except Exception as e:
             gr.Error(f"Error: {str(e)}")
             return gr.update(visible=False), "", "", gr.update(visible=True)
     
-    async def handle_continue_research(query, clarifications):
+    async def handle_continue_research(query, clarifications, research_approach):
         """Continue research with clarifications"""
         try:
             report_content = ""
-            async for chunk in run_research(query, clarifications):
+            async for chunk in run_research(query, clarifications, research_approach):
                 report_content = chunk
             return gr.update(visible=False), report_content, gr.update(visible=True)
         except Exception as e:
@@ -112,20 +134,20 @@ with gr.Blocks() as ui:
     # Event handlers
     run_button.click(
         handle_run_research,
-        inputs=[query_textbox],
+        inputs=[query_textbox, approach_radio],
         outputs=[clarification_group, questions_display, report, run_button]
     )
     
     continue_button.click(
         handle_continue_research,
-        inputs=[query_textbox, clarifications_textbox],
+        inputs=[query_textbox, clarifications_textbox, approach_radio],
         outputs=[clarification_group, report, run_button]
     )
     
     # Enter key starts research
     query_textbox.submit(
         handle_run_research, 
-        inputs=[query_textbox], 
+        inputs=[query_textbox, approach_radio], 
         outputs=[clarification_group, questions_display, report, run_button]
     )
 
