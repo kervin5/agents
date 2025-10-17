@@ -16,6 +16,10 @@ load_dotenv(override=True)
 pushover_token = os.getenv("PUSHOVER_TOKEN")
 pushover_user = os.getenv("PUSHOVER_USER")
 pushover_url = "https://api.pushover.net/1/messages.json"
+
+ntfy_topic = os.getenv("NTFY_TOPIC")
+ntfy_url = f"https://ntfy.sh/{ntfy_topic}"
+
 serper = GoogleSerperAPIWrapper()
 
 async def playwright_tools():
@@ -25,9 +29,14 @@ async def playwright_tools():
     return toolkit.get_tools(), browser, playwright
 
 
+# def push(text: str):
+#     """Send a push notification to the user"""
+#     requests.post(pushover_url, data = {"token": pushover_token, "user": pushover_user, "message": text})
+#     return "success"
+
 def push(text: str):
-    """Send a push notification to the user"""
-    requests.post(pushover_url, data = {"token": pushover_token, "user": pushover_user, "message": text})
+    """Send a push notification to the user via ntfy.sh"""
+    requests.post(ntfy_url, data=text.encode("utf-8"))
     return "success"
 
 
